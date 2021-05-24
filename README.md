@@ -8,7 +8,7 @@ It is a eye-controlled keyboard for physically-challenged people.
 It uses Neural Networks to predict the eye's state accurately using which the virtual keybaord shown on the screen is operated.
 
 
-![Alt text](nk.gif)
+![Alt text](demo.gif)
 
 # How it works
 For each frame in a second:
