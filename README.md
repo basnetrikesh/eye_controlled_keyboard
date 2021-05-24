@@ -2,10 +2,10 @@
 [![forthebadge](https://forthebadge.com/images/badges/built-with-love.svg)](https://forthebadge.com)<br>
 [![forthebadge](https://forthebadge.com/images/badges/made-with-python.svg)](https://forthebadge.com)
 
-# NEURAL KEYBOARD : 
+# EYE CONTROLLED KEYBOARD : 
 
-The neural keyboard is an Eye-controlled keyboard for physically-challenged people. 
-It uses Neural Networks to predict the eye's state accurately using which the keyboard is operated.
+It is a eye-controlled keyboard for physically-challenged people. 
+It uses Neural Networks to predict the eye's state accurately using which the virtual keybaord shown on the screen is operated.
 
 
 ![Alt text](nk.gif)
@@ -18,7 +18,10 @@ function as it contains co-ordinates of respective landmarks and function return
 3. Similarly pass 42,43,44,45,46,47 index to get cropped image of right eye.
 <br>
 <img src="FILES\crop.png">
-4. Pass the cropped eye images through the model for the detection of the eyes width.<br>
+4.The cropped eyes images are passed to the two model blink detection model and gaze detection model. Blink detection model predicts the openning percentage of the eyes and gaze detection model predict the gaze of the eyes ie. either user is loking left, right or center<br>
+5.Eyes blink is used to enter inside the particular column of the keyboard and Eyes gaze is used to shift the active column of the keyboard.
+
+# For the more details read the paper on this project from [HERE](https://drive.google.com/file/d/1gniRFHjCecArHWOHneltp6tUWql5MirM/view?usp=sharing)
 
 This code was developed on: 
 ```
@@ -32,6 +35,6 @@ imutils==0.5.3
 # NOTE:
  Download the shape_predictor_68_face_landmarks.dat file from [HERE](https://drive.google.com/drive/folders/1sBn-qxZW-cJC8epR0z63Kz3uwnS8SjZF?usp=sharing) and paste it in the Files folder. 
 
-### With the joint effort of: https://github.com/basnetrikesh
+### With the joint effort of: https://github.com/R4j4n
 
 ![visitors](https://visitor-badge.glitch.me/badge?page_id=page.https://github.com/R4j4n/Neural-Keyboard)
