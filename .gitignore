@@ -1,0 +1,6 @@
+__pycache__/
+.vscode/
+DATASET/
+data_set_collector.py
+
+

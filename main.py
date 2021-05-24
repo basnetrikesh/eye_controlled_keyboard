@@ -25,25 +25,40 @@ key_set={0:"1",1:"2",2:"3",3:"4",4:"5",5:"6",6:"7",7:"8",8:"9",9:"0",
             10:"q",11:"w",12:"e",13:"r",14:"t",15:"y",16:"u",17:"i",18:"o",19:"p",
             20:"a",21:"s",22:"d",23:"f",24:"g",25:"h",26:"j",27:"k",28:"l",29:";",
             30:"z",31:"x",32:"c",33:"v",34:"b",35:"n",36:"m",37:"<",38:">",39:"?",
-            40:"+",41:"-",42:",",43:".",44:"/",45:"*",46:"@",47:".",48:"!",49:" ",
-            50:"->",51:"->",52:"->",53:"->",54:"->",55:"->",56:"->",57:"->",58:"->",59:"->",}
+            40:"+",41:"-",42:",",43:".",44:"/",45:"*",46:"@",47:" ",48:"!",49:"<-",
+            50:"%",51:"$",52:":",53:"&",54:"(",55:")",56:"=",57:"_",58:"'",59:"#",}
 #counters
 frame_count_column=0 #this is frame count for column
 frame_count_row=0 #this is frame count for row
 col_index=[]
 col=0
+column_previous=0
 blink_count=0 #this for couting the blink (used for blink for changing the row and column)
 blink_count_indivisual_key=0 #this is for counting the blink to check whether the key should press or not
 font_letter=cv2.FONT_HERSHEY_PLAIN
 col_select=False #this for selecting the particular column
 row=0 #this is to count the row after particular column is selected
 IMG_SIZE=(34,26)
+IMG_SIZE_GAZE=(64,56)
 ###################
 type_text="" #this is to store the typed character 
 ###################
 
+#COUNTER FOR GAZE DETECTION
+gaze_right_frame_count=0
+gaze_left_frame_count=0
+
+
+
 #user defined class object for blink detection using cnn model
 bd=Blink_detection()
+
+#user defined class for gaze detection 
+gd=Gaze_detection()
+
+#class labels of gaze detection
+gaze_class_labels = ['center','left', 'right']
+
 white_board=np.ones((100,800,3),np.uint8)
 
 #######################
@@ -254,14 +269,29 @@ while True:
     main_windows = np.zeros((780,1000,3),np.uint8)
     if col_select==True:
         frame_count_row=frame_count_row+1
-    else:
+    """else:
         frame_count_column=frame_count_column+1
     
     if frame_count_column==10:
         col=col+1
         if col==10:
             col=0 #reseting the column
-        frame_count_column=0
+        frame_count_column=0"""
+    if gaze_right_frame_count==10:
+        print("voluntary right gaze detected")
+        winsound.Beep(500,10)
+        col=col+1
+        gaze_right_frame_count=0
+        if col==10:
+            col=0
+    if gaze_left_frame_count==10:
+        print("voluntary left gaze detected")
+        winsound.Beep(500,10)
+        col=col-1
+        gaze_left_frame_count=0
+        if col==-1:
+            col=9
+    
     if frame_count_row==10:
         row=row+1
         if row==6:
@@ -311,73 +341,108 @@ while True:
     gray=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY) #coverting the bgr frame to gray scale
     faces=detector(gray) #this returns the dlib rectangle
     #now extracting the rectangle which contain the upper and lower cordinates of the face
-    for face in faces:
-        shapes = predictor(gray, face)
-        shapes = face_utils.shape_to_np(shapes)
+    if len(faces)==0:
+        continue
+    face=faces[0]
+    shapes = predictor(gray, face)
+    shapes = face_utils.shape_to_np(shapes)
 
-        eye_img_l, eye_rect_l = bd.crop_eye(gray, eye_points=shapes[36:42])
-        eye_img_r, eye_rect_r = bd.crop_eye(gray, eye_points=shapes[42:48])
+    #EYE CROPING FOR BLINK
+    eye_img_l, eye_rect_l = bd.crop_eye(gray, eye_points=shapes[36:42])
+    eye_img_r, eye_rect_r = bd.crop_eye(gray, eye_points=shapes[42:48])
 
-        eye_img_l = cv2.resize(eye_img_l, dsize=IMG_SIZE)
-        eye_img_r = cv2.resize(eye_img_r, dsize=IMG_SIZE)
-        eye_img_r = cv2.flip(eye_img_r, flipCode=1)
+    #EYE CROPING FOR GAZE
+    eye_img_l_g= gd.crop_eye(gray, eye_points=shapes[36:42])
+
+    eye_img_l = cv2.resize(eye_img_l, dsize=IMG_SIZE)
+    eye_img_r = cv2.resize(eye_img_r, dsize=IMG_SIZE)
+    # eye_img_r = cv2.flip(eye_img_r, flipCode=1)
+
+    #RESIZING THE CROPPED GAZE INPUT EYE
+    eye_img_l_g=cv2.resize(eye_img_l_g,dsize=IMG_SIZE_GAZE)
+
 
        
 
 
-        eye_input_l = eye_img_l.copy().reshape((1, IMG_SIZE[1], IMG_SIZE[0], 1)).astype(np.float32) / 255.
-        eye_input_r = eye_img_r.copy().reshape((1, IMG_SIZE[1], IMG_SIZE[0], 1)).astype(np.float32) / 255.
+    eye_input_l = eye_img_l.copy().reshape((1, IMG_SIZE[1], IMG_SIZE[0], 1)).astype(np.float32) / 255.
+    eye_input_r = eye_img_r.copy().reshape((1, IMG_SIZE[1], IMG_SIZE[0], 1)).astype(np.float32) / 255.
+    eye_input_l_g = eye_img_l_g.copy().reshape((1, IMG_SIZE_GAZE[1], IMG_SIZE_GAZE[0], 1)).astype(np.float32) / 255.
 
-        pred_l,pred_r=bd.model_predict(eye_input_l,eye_input_r)
+    pred_l,pred_r=bd.model_predict(eye_input_l,eye_input_r)
+    gaze=gd.model_predict(eye_input_l_g)
+    #print(gaze)
+    if gaze=="right" and col_select==False and pred_l >= 0.3 and pred_r >=0.3:
+        print("right gaze")
+        cv2.putText(main_windows,"--RIGHT--",(50,325), font_letter,2, (255,255,51),2)
+        cv2.putText(main_windows,"--RIGHT--",(800,325), font_letter,2, (255,255,51),2)
+        gaze_right_frame_count=gaze_right_frame_count+1
+    if gaze=="left" and col_select==False and pred_l >= 0.3 and pred_r >=0.3:
+        print("left gaze")
+        cv2.putText(main_windows,"--LEFT--",(50,325), font_letter,2, (255,255,51),2)
+        cv2.putText(main_windows,"--LEFT--",(800,325), font_letter,2, (255,255,51),2)
 
-        if pred_l < 0.1 and pred_r <0.1:
-            cv2.putText(main_windows,"------BLINK DETECTED------",(375,325), font_letter,1, (0,0,255),2)
+        gaze_left_frame_count=gaze_left_frame_count+1
+    if gaze=="center" and col_select==False:
+        print("center gaze")
+        cv2.putText(main_windows,"--CENTER--",(50,325), font_letter,2, (255,255,51),2)
+        cv2.putText(main_windows,"--CENTER--",(800,325), font_letter,2, (255,255,51),2)
 
-            print("blink detected")
-            blink_count=blink_count+1
-            if col_select==True:
-                blink_count_indivisual_key=blink_count_indivisual_key+1
-                frame_count_row=frame_count_row-1
-            else:
-                frame_count_column=frame_count_column-1
+        
+
+    if pred_l < 0.3 and pred_r <0.3:
+        print("blink detected")
+        cv2.putText(main_windows,"------BLINK DETECTED------",(375,325), font_letter,1, (0,0,255),2)
+
+        #print("blink detected")
+        blink_count=blink_count+1
+        if col_select==True:
+            blink_count_indivisual_key=blink_count_indivisual_key+1
+            frame_count_row=frame_count_row-1
         else:
-            blink_count=0
-            blink_count_indivisual_key=0
-        if blink_count==10:
-            col_select=True
-        #implementing keyboard typing
-        if blink_count_indivisual_key==10 and col_select==True:
-            col_select=False #to disable the active column
+            frame_count_column=frame_count_column-1
+    else:
+        blink_count=0
+        blink_count_indivisual_key=0
+    if blink_count==10:
+        col_select=True
+    #implementing keyboard typing
+    if blink_count_indivisual_key==10 and col_select==True:
+        col_select=False #to disable the active column
+        print("typed text:",key_set[col_index[row]])
+        if key_set[col_index[row]]=='<-':
+            type_text=type_text[:-1]
+        else:
             type_text=type_text+key_set[col_index[row]]
-            blink_count_indivisual_key=0
-            white_board[:]=(0,0,0)
-            winsound.Beep(500,100)
-            cv2.putText(white_board,type_text,(10,50),cv2.FONT_HERSHEY_PLAIN,5,(255,255,255),3)
-            row=0 #resetting the row
+        blink_count_indivisual_key=0
+        white_board[:]=(0,0,0)
+        winsound.Beep(500,100)
+        cv2.putText(white_board,type_text,(10,50),cv2.FONT_HERSHEY_PLAIN,5,(255,255,255),3)
+        row=0 #resetting the row
 
 
-        # visualize
-        state_l = 'O %.1f' if pred_l > 0.1 else '- %.1f'
-        state_r = 'O %.1f' if pred_r > 0.1 else '- %.1f'
+    # visualize
+    state_l = 'O %.1f' if pred_l > 0.1 else '- %.1f'
+    state_r = 'O %.1f' if pred_r > 0.1 else '- %.1f'
 
-        state_l = state_l % pred_l
-        state_r = state_r % pred_r
+    state_l = state_l % pred_l
+    state_r = state_r % pred_r
 
-        cv2.rectangle(frame, pt1=tuple(eye_rect_l[0:2]), pt2=tuple(eye_rect_l[2:4]), color=(64,224,208), thickness=2)
-        cv2.rectangle(frame, pt1=tuple(eye_rect_r[0:2]), pt2=tuple(eye_rect_r[2:4]), color=(255,0,0), thickness=2)
+    cv2.rectangle(frame, pt1=tuple(eye_rect_l[0:2]), pt2=tuple(eye_rect_l[2:4]), color=(64,224,208), thickness=2)
+    cv2.rectangle(frame, pt1=tuple(eye_rect_r[0:2]), pt2=tuple(eye_rect_r[2:4]), color=(255,0,0), thickness=2)
 
-        # Combaining all windows into single window: 
-        main_windows[50:150, 100:200] = cv2.resize(cv2.cvtColor(eye_img_l,cv2.COLOR_BGR2RGB),(100,100))
-        cv2.putText(main_windows,"LEFT EYE",(100,170), font_letter,1, (0,255,0),1)
-        cv2.putText(main_windows,str(state_l+"%"),(100,200), font_letter,2, (0,0,255),1)
-        main_windows[50:150, 800:900] = cv2.resize(cv2.cvtColor(eye_img_r,cv2.COLOR_BGR2RGB),(100,100))
-        cv2.putText(main_windows,"RIGHT EYE",(800,170), font_letter,1, (0,255,0),1)
-        cv2.putText(main_windows,str(state_r+"%"),(800,200), font_letter,2, (0,0,255),1)
+    # Combaining all windows into single window: 
+    main_windows[50:150, 100:200] = cv2.resize(cv2.cvtColor(eye_img_l,cv2.COLOR_BGR2RGB),(100,100))
+    cv2.putText(main_windows,"CROPPED LEFT EYE",(90,170), font_letter,1, (255,255,51),2)
+    cv2.putText(main_windows,str(state_l+"%"),(100,200), font_letter,2, (0,0,255),2)
+    main_windows[50:150, 800:900] = cv2.resize(cv2.cvtColor(eye_img_r,cv2.COLOR_BGR2RGB),(100,100))
+    cv2.putText(main_windows,"CROPPED RIGHT EYE",(790,170), font_letter,1, (255,255,51),2)
+    cv2.putText(main_windows,str(state_r+"%"),(800,200), font_letter,2, (0,0,255),2)
 
-        main_windows[0:300, 300:700]= cv2.resize(frame,(400,300))
-        main_windows[350:650, 100:900] =  keyboard
-        main_windows[670:770, 100:900] = white_board
-        cv2.imshow("Main_Windows",main_windows)
+    main_windows[0:300, 300:700]= cv2.resize(frame,(400,300))
+    main_windows[350:650, 100:900] =  keyboard
+    main_windows[670:770, 100:900] = white_board
+    cv2.imshow("Main_Windows",main_windows)
     key=cv2.waitKey(10)
     if key==ord('q'):
         break
